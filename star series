@@ -1,0 +1,4 @@
+for n in range(9,0):
+    for m in range(n-1,n):
+        print(" ",end="*")
+    print() 
