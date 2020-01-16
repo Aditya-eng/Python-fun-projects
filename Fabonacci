@@ -1,0 +1,8 @@
+def  fabonacci(a,b):
+    print(a)
+    print(b)
+    for n in range(15):
+             b = a + b
+             print(b)
+             a = b - a
+print(fabonacci(1,0)) 
