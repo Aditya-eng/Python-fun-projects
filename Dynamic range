@@ -1,0 +1,10 @@
+l=[1,2,12,3,4,34,5,6,56,7,8,78]
+for n in range (l[0],len(l)):
+           print(n)
+print()
+a = int(input('Enter the number u want to create a dyanamic range of:'))
+if a < 200:
+          for m in range(0,a):
+                       print(m)
+else:
+         print('Give a no. lower than 200:',a)
