@@ -1,0 +1,26 @@
+#Guess Game
+import random
+print("Welcome to Guess Game")
+print("Please enter your name: ")
+name = input()
+print("Hi "+str(name)+" guess a no. between 1-20 that i am thinking...")
+
+secret_number = random.randint(1,30)
+
+for guessrange in range(10):
+    guessnum = int(input("Provide your guess: "))
+    if guessnum > 20:
+        print("Your number is higher than the limit given...")
+    elif guessnum < secret_number:
+        print("Your number is low....")
+    elif guessnum > secret_number:
+        print("Your number is higher..")
+    elif guessnum < 1:
+        print("Your number is smaller than the given limit...")
+    else:
+         break
+
+if guessnum == secret_number:
+    print("You got the answer right in "+str(guessrange)+" attempts.")
+else:
+    print("Sorry you lose!! Try your luck next time")
