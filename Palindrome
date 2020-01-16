@@ -1,0 +1,12 @@
+n = 123
+r = 0
+p = 0
+temp = n
+while temp > 0:
+    r = temp%10
+    p = p*10 +r
+    temp = temp/10
+if p==n :
+    print("Palindrome")
+else:
+    print("Sorry!")
