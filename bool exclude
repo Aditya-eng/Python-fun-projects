@@ -1,0 +1,20 @@
+l=[12,3,True,'riyansh','aditya',7,69]
+l1=[]
+l2=[]
+l4=[]
+for n in l:
+         if type(n) is int:
+             l1.append(n)
+         elif type(n) is str:
+             l2.append(n)
+         else:
+              continue
+             
+print(l1)
+l1.sort()
+print(l1)
+print(l2)
+l2.sort(key = str.lower)
+l1.extend(l2)
+print(l1)
+
