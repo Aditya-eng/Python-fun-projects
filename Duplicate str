@@ -1,0 +1,11 @@
+s=str(input())
+d={}
+l=len(s)
+count=1
+for n in range(l):
+    for m in range(n,n+1):
+        if s[n]==s[m] and d.get(s[n],"Present")!="Present":
+            d[s[n]]+=1
+        else:
+            d.setdefault(s[n],count)
+print(d)
