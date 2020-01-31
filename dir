@@ -1,0 +1,70 @@
+import os
+print(os.getcwd())
+os.chdir('d:\Webex Python')
+print(os.getcwd())
+print(os.path.relpath(os.getcwd()))
+import sys
+file = sys.argv[0]
+print('--------------------')
+print()
+try:
+    os.rmdir('c:/New folder/')
+except Exception as err:
+    print(err,'is the error')
+#os.mkdir('c:/Users/Aditya Garg/Hello.txt')
+#os.path.removedir('Hello.txt')
+#os.path.removedirs('Helylo.txt')
+#os.path.removedir('Helylo.txt')
+try:
+            os.mkdir('c:/Users/Aditya Garg/Hello.txt')
+            os.path.removedir('c:/Users/Aditya Garg/Hello.txt')
+ #           os.path.removedir('Hello.txt')
+except Exception as error:
+    print('0101110110',error,'0101110110')
+print()
+print()
+print(os.path.getsize(file))
+try:
+    os.mkdir("saamplee.txt")
+#try:
+ #  os.mkfile
+except Exception as error:
+    print('hello',error)
+os.chdir(os.getcwd())
+#print(os.path.dirsname('e://saamplee.txt'))
+print(os.stat(file).st_mtime)
+import datetime
+date = os.stat(file).st_mtime
+print(os.stat(file).st_mtime)
+print(datetime.datetime.fromtimestamp(date))
+print()
+print(os.environ.get('PATH'))
+print()
+print(os.environ.get('HOME'))
+#file=open(os.getcwd()+"/test.txt"+"w")
+#file.write('hellllo')
+#file.writelines(['ndnzn\n','kjvnfdlk\n'])
+#file.close()
+print(os.path.split('c:/python/bshiusbk'))
+print(os.path.dirname('c:/python/'))
+print(os.path.basename('/bshiusbk/kd'))
+print('-----------------------------------')
+print(dir(os.path))
+print('-----------------------------------')
+#os.rmdir('Hello.txt')
+#f =open('C:\Python38\directory.py','r')
+f1 = 'c:/Users/Aditya Garg/Helylo.txt/heee.txt'
+g =open(f1,'w')
+h =open(f1,'a+')
+#print(f.read())
+print()
+print(g.write('pythun'))
+g.close()
+print(h.write('fvlyufuljugkcxrxrt'))
+h.close()
+print()
+for dirpath,dirnames,filenames in os.walk(os.getcwd()):
+    print('Current path:',dirpath)
+    print('Directories:',dirnames)
+    print('files:',filenames)
+    print()
