@@ -1,0 +1,80 @@
+'''String functions
+'That only give boolean values and only give True when'.
+         istitle() - the character starting is in capital with no spaces.for eg. 'Mr'
+         isalpha() - a string has only alphabets (excluding spaces '  ' ) .
+         isalnum() - the string has either alphabets either numbers or both.
+         isspace() - the string has only space .
+         isdigit() - the string only has numbers.
+         s.lower() - converts into lower case.
+         s.upper -  converts into upper case
+         s.startswith and endswith("First") - as the name suggests.
+We can see more fns by putting a dot after the variable.
+And also string are immutable that means they cannot be changed .
+Even if we use a function the string after printing does not change.
+We can also use two or more dot's for more functions.This is called FUNCTION CHAINING.
+             @ DOUBT  FOR USAGE OF CHAINING IN FUNCS ..............'''
+
+r = "learning"
+q = "Iam"
+s = "string"
+t = "functions."
+u = "hello"
+print(print("hello"))
+print(s.lower().isalpha())
+print(s.islower())
+print(s.capitalize())
+print(s.casefold())
+print(s.isalnum())
+print(s.isalpha())
+print(s.isascii())
+print(s.isdecimal())
+print(s.isidentifier())
+print(s.isnumeric())
+print(s.isprintable())
+print(s.swapcase())
+print(s.__getnewargs__())
+print(s.__sizeof__())
+#print(s.__module__)
+
+""""For concatenation use '+' for eg. a+b+c     OR    :-"""
+print(" ".join([q,r,s,t]))
+print("_".join([q,r,s,t]))
+
+"""
+Split function uses argument for the values it needs to to remove from the string in the bracket.For e.g. split("n")
+Note that split uses space as default argument.
+"""
+v = q+r+s+t+u
+print(len(v))
+'''these adjusts the string in the left and rigth and on the sides puts values given.'''
+print(v.rjust(60,"$"))
+print(v.ljust(60,"$"))
+'''this adjusts the string in the center and on the sides puts values given.'''
+print(v.center(100,"@"))
+print(v.split())
+h=v.split()
+#print(h[1][0])
+
+"""slicing can be done with strings as follows:-"""
+print(v[10:18])
+'''reversing can be done through -'''
+print(v[: :-1])
+#print(v.__reversed__())
+'''
+This is a program of duplicate objects!!!!
+s=str(input('Enter the string or integer: '))
+d={}
+l=len(s)
+print(l)
+count=1
+for n in range(l):
+    for m in range(n,n+1):
+        if s[n]==s[m] and d.get(s[n],"Present")!="Present":
+            d[s[n]]+=1
+        else:
+            d.setdefault(s[n],count)
+print(d)'''
+
+for n in v:
+    print(n,end="(*)")
+print('a', 'b', 'c', sep=', ')
