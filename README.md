@@ -1,2 +1,2 @@
-# My-project
+PYTHON FUN PROJECTS
 # Python common projects
