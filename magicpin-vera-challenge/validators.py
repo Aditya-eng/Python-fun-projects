@@ -12,12 +12,23 @@ from typing import Optional
 
 from facts import FactPack
 
-ALLOWED_CTA = {"binary", "open_ended", "none"}
+# Verified against examples/api-call-examples.md: cta is a descriptive slug,
+# not a fixed 3-value enum. Known values seen in the official examples; a
+# well-formed unknown slug is tolerated rather than downgraded (downgrading a
+# richer/valid cta to "open_ended" made messages worse, not safer).
+KNOWN_CTA = {"open_ended", "none", "binary_yes_no", "binary_confirm_cancel", "multi_choice_slot"}
+_CTA_SHAPE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 _MULTI_CTA_PATTERN = re.compile(
     r"reply\s+\w+\s+(?:for|to)\s+\w+.*(?:,|;|\bor\b).*reply\s+\w+\s+(?:for|to)\s+\w+",
     re.IGNORECASE,
 )
+
+# examples/api-call-examples.md F.4: a URL in the body is a hard fail (-3 per
+# URL) — Meta would reject the WhatsApp template. This overrides the more
+# lenient "URLs allowed when they add value" line in challenge-brief.md §5.4,
+# since the testing brief is the actual scoring contract.
+_URL_PATTERN = re.compile(r"https?://\S+", re.IGNORECASE)
 
 
 def _category_taboos(category: Optional[dict]) -> list[str]:
@@ -37,11 +48,14 @@ def validate(message: dict, fp: FactPack, category: Optional[dict]) -> list[str]
         problems.append("empty_body")
         return problems  # nothing else to check
 
-    if cta not in ALLOWED_CTA:
+    if not cta or not _CTA_SHAPE.match(cta):
         problems.append("invalid_cta")
 
     if _MULTI_CTA_PATTERN.search(body):
         problems.append("multi_cta")
+
+    if _URL_PATTERN.search(body):
+        problems.append("url_in_body")
 
     low = body.lower()
     for taboo in _category_taboos(category):
@@ -89,6 +103,9 @@ def validate_and_repair(message: dict, fp: FactPack, category: Optional[dict]) -
 
     if "invalid_cta" in problems:
         repaired["cta"] = "open_ended"
+
+    if "url_in_body" in problems:
+        repaired["body"] = _URL_PATTERN.sub("", repaired["body"]).strip()
 
     if "verbatim_repeat" in problems:
         repaired["body"] = repaired["body"].rstrip(".") + " (circling back on this)."

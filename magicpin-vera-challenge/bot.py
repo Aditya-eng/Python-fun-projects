@@ -33,6 +33,8 @@ CONTACT_EMAIL = os.environ.get("VERA_CONTACT_EMAIL", "electronicsmail500@gmail.c
 contexts: dict[tuple[str, str], dict] = {}          # (scope, context_id) -> {version, payload}
 conversations: dict[str, ConversationState] = {}    # conversation_id -> state
 sent_suppression_keys: set[str] = set()             # global dedup across the whole test window
+opted_out_merchants: set[str] = set()               # hard stop in ANY conversation suppresses ALL future ticks
+opted_out_customers: set[str] = set()
 
 
 def _now_iso() -> str:
@@ -61,16 +63,20 @@ async def metadata():
         "team_members": TEAM_MEMBERS,
         "model": "deterministic-composer+optional-claude-haiku-polish",
         "approach": (
-            "Fact-anchored template composer keyed on trigger.kind, with a per-trigger "
-            "fact extractor that only surfaces values actually present in the pushed "
-            "context (never invents numbers/sources/competitor names). Post-composition "
-            "validator enforces single-CTA, taboo-word, and anti-repetition rules with a "
+            "Fact-anchored template composer with one builder per trigger.kind, reading "
+            "real payload field names verified against the official dataset "
+            "(e.g. competitor_opened.their_offer, recall_due.available_slots, "
+            "milestone_reached.is_imminent) rather than guessed ones — never invents "
+            "numbers/sources/competitor names. Post-composition validator enforces "
+            "single-CTA, taboo-word, URL-hard-fail, and anti-repetition rules with a "
             "one-pass repair before falling back to a minimal grounded message. Reply "
-            "handling is a rule-based state machine: auto-reply/verbatim-loop detection, "
-            "explicit-intent routing straight to action mode, stop/opt-out, one "
-            "de-escalation attempt on hostility, and a 30-min backoff on 'later'. An "
-            "optional Claude Haiku tone-polish pass runs only if ANTHROPIC_API_KEY is set, "
-            "and is discarded if it changes any number in the message."
+            "handling is a rule-based state machine: 3-strike auto-reply detection "
+            "(send nudge -> wait 24h -> end), explicit-intent routing to a concrete "
+            "next step gated by one CONFIRM, hard stop/opt-out that suppresses future "
+            "proactive sends account-wide, one hostility de-escalation then a kept "
+            "commitment to step back, and a 30-min backoff on 'later'. An optional "
+            "Claude Haiku tone-polish pass runs only if ANTHROPIC_API_KEY is set, and "
+            "is discarded if it changes any number in the message."
         ),
         "contact_email": CONTACT_EMAIL,
         "version": "1.0.0",
@@ -123,6 +129,10 @@ async def tick(request: Request):
         merchant_id = trigger_ctx.get("merchant_id") or _resolve_merchant_id(trigger_ctx)
         customer_id = trigger_ctx.get("customer_id")
         if not merchant_id or merchant_id in merchants_acted_on_this_tick:
+            continue
+        if merchant_id in opted_out_merchants:
+            continue
+        if customer_id and customer_id in opted_out_customers:
             continue
 
         suppression_key = trigger_ctx.get("suppression_key") or f"{trigger_ctx.get('kind')}:{merchant_id}"
@@ -190,6 +200,12 @@ async def reply(request: Request):
 
     result = reply_respond(state, message, fp)
 
+    if state.opted_out:
+        if state.merchant_id:
+            opted_out_merchants.add(state.merchant_id)
+        if state.customer_id:
+            opted_out_customers.add(state.customer_id)
+
     if result.get("action") == "send":
         candidate = {
             "body": result.get("body", ""),
@@ -213,4 +229,6 @@ async def teardown():
     contexts.clear()
     conversations.clear()
     sent_suppression_keys.clear()
+    opted_out_merchants.clear()
+    opted_out_customers.clear()
     return {"accepted": True}

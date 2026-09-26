@@ -41,7 +41,8 @@ class FactPack:
 
     # signals / research
     signals: list[str] = field(default_factory=list)
-    digest_item: Optional[dict] = None       # {title, source, trial_n, summary, ...}
+    digest_item: Optional[dict] = None       # {title, source, trial_n, summary, ...} — first item, kept for back-compat
+    digest_items: list[dict] = field(default_factory=list)  # full category.digest list
     peer_stats: Optional[dict] = None
 
     # subscription
@@ -70,6 +71,14 @@ class FactPack:
 
     # conversation history (for anti-repetition)
     prior_bodies: list[str] = field(default_factory=list)
+
+    def digest_by_id(self, item_id: Optional[str]) -> Optional[dict]:
+        """research_digest/regulation_change/cde_opportunity triggers reference
+        a specific category.digest[] item by id (payload.top_item_id /
+        digest_item_id) rather than embedding the item inline — look it up."""
+        if not item_id:
+            return None
+        return next((d for d in self.digest_items if d.get("id") == item_id), None)
 
     def has_real_trigger_payload(self) -> bool:
         """The community dataset generator stubs most non-seed triggers with
@@ -142,6 +151,7 @@ def build_fact_pack(
             if peer_ctr is not None and fp.ctr is not None:
                 fp.ctr_below_peer = fp.ctr < peer_ctr
         digest = category.get("digest", []) or []
+        fp.digest_items = digest
         if digest:
             fp.digest_item = digest[0]
 

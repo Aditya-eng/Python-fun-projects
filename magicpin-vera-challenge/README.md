@@ -1,63 +1,85 @@
 # Vera Challenge — submission
 
 A deterministic, fact-anchored rewrite of Vera's message composer + reply
-handler, built against `challenge-brief.md` / `challenge-testing-brief.md`
-(the magicpin AI Challenge spec — see repo root for how those were sourced).
+handler, built and verified against magicpin's own official challenge zip
+(`challenge-brief.md`, `challenge-testing-brief.md`, `examples/`,
+`dataset/`), which the person running this session downloaded directly from
+the challenge page and shared here mid-build.
 
 ## Approach
 
-**No LLM call is required.** The rubric's own "good message" examples
-(Appendix A/B of the brief) are templates filled with real numbers — that's
-what's being scored, not prose creativity. So the composer is:
+**No LLM call is required.** The rubric's own "good message" examples are
+templates filled with real numbers — that's what's being scored, not prose
+creativity. So the composer is:
 
 1. **`facts.py`** — extracts a small `FactPack` of only the values that are
    actually present in the pushed category/merchant/trigger/customer
-   payloads. Nothing downstream can invent a number, source, or name that
-   isn't in here.
-2. **`composer.py`** — one template family per `trigger.kind` (~25 kinds
-   covering the brief's external/internal/customer-scope triggers), each
-   picking a real anchor fact and 1-2 compulsion levers (brief §10). When a
-   trigger fires with a thin/placeholder payload, it degrades to whatever
-   real signal *is* available (a merchant's own `signals` list, peer CTR gap,
-   etc.) rather than fabricating specifics — this is the anti-hallucination
-   posture Phase 3 (context injection) explicitly rewards.
-3. **`validators.py`** — a post-composition check for the brief's own
-   anti-patterns (§11): multi-CTA, taboo vocabulary per category voice,
-   verbatim repeats, empty bodies. One repair pass, then a minimal grounded
-   fallback — the bot never returns an empty `send`.
-4. **`conversation_handlers.py`** — the `/v1/reply` state machine: hard
-   stop/opt-out (word-boundary matched, so "nonstop" doesn't misfire),
-   auto-reply detection (canned phrases + verbatim-loop, one polite retry
-   then graceful exit — the brief's #1 flagged production weakness),
-   explicit-intent routing straight to action mode (the brief's Pattern D
-   anti-pattern is: don't re-qualify after a "yes"), one de-escalation
-   attempt on hostility before exiting, a 30-min backoff on "later", and an
-   honest non-competence answer for off-topic asks.
+   payloads, including a `digest_by_id()` lookup since `research_digest`,
+   `regulation_change`, and `cde_opportunity` triggers reference a specific
+   `category.digest[]` item by id rather than embedding it inline (verified
+   against the real `dataset/triggers_seed.json`). Nothing downstream can
+   invent a number, source, or name that isn't in here.
+2. **`composer.py`** — one builder per `trigger.kind` (~28 kinds), each
+   reading the *actual* payload field names for that kind — e.g.
+   `competitor_opened` uses `competitor_name`/`distance_km`/`their_offer`;
+   `recall_due` uses the real `available_slots: [{iso, label}]` list;
+   `milestone_reached` distinguishes an *approaching* milestone
+   (`is_imminent`, `value_now < milestone_value`) from one already hit;
+   `winback_eligible` is about the merchant's own lapsed subscription
+   (`days_since_expiry`), not their customers. These field names come from
+   the real seed data, not from guessing off the prose brief — an earlier
+   draft got roughly half of them wrong before the real dataset was
+   available to check against. Every builder degrades to whatever real
+   signal *is* available rather than fabricating specifics when a payload is
+   thin — the anti-hallucination posture Phase 3 (context injection)
+   explicitly rewards.
+3. **`validators.py`** — catches the brief's anti-patterns: multi-CTA,
+   taboo vocabulary per category voice, verbatim repeats, empty bodies, and
+   **any URL in the body** (a hard -3-per-URL fail per
+   `examples/api-call-examples.md` F.4 — Meta would reject the template;
+   this overrides the more lenient line in the prose brief). CTA is treated
+   as a descriptive slug, not a fixed 3-value enum — the real examples use
+   `open_ended`, `none`, `binary_yes_no`, `multi_choice_slot`, and
+   `binary_confirm_cancel` depending on what's actually being asked; an
+   earlier draft was silently downgrading all of these to `open_ended`,
+   which actively hurt message quality. One repair pass, then a minimal
+   grounded fallback — the bot never returns an empty `send`.
+4. **`conversation_handlers.py`** — the `/v1/reply` state machine, matched
+   turn-by-turn against `examples/api-call-examples.md` §4:
+   - **Auto-reply**: 3-strike pattern — first canned/repeated message gets
+     one `send` nudge (`binary_yes_no`), the second gets `wait` (24h,
+     matching the official scenario), the third gets `end`. (An earlier
+     draft ended on the second strike — a turn too early relative to the
+     scored replay scenario.)
+   - **Hard stop/opt-out**: word-boundary matched (so "nonstop" doesn't
+     misfire) and immediately ends — and now also marks the merchant (or
+     customer) opted-out account-wide, since `bot.py`'s `/v1/tick` checks
+     that set before ever composing a new proactive send to them again, not
+     just suppressing that one `conversation_id`.
+   - **Hostility**: one short apology + opt-out line (`cta: none`, matching
+     the official "acceptable alternative"), then the conversation ends on
+     *any* next turn regardless of content — keeping the stated commitment
+     to step back rather than re-engaging.
+   - **Intent transition**: routes straight to a concrete next step with one
+     `binary_confirm_cancel` ask, rather than re-qualifying (the brief's
+     Pattern D anti-pattern) *or* falsely claiming the action is already
+     done before it's confirmed.
+   - Off-topic asks get an honest non-competence answer and redirect back to
+     the bot's actual scope.
 5. **`llm_hook.py`** — optional. If `ANTHROPIC_API_KEY` is set on the host,
    a Claude Haiku pass polishes tone only; it's discarded if it changes any
    number in the message, and the bot works identically with it absent.
 
 ## Tradeoffs
 
-- Deterministic-first over LLM-first: guarantees the 30s budget, needs zero
-  API key to run, and can't hallucinate — at the cost of some phrasing
+- Deterministic-first over LLM-first: guarantees the latency budget, needs
+  zero API key to run, and can't hallucinate — at the cost of some phrasing
   variety an LLM would add. The optional polish hook is there if there's
   time to wire a key in.
 - Reply handling is rule-based, not another LLM call: faster, and harder for
   a canned WhatsApp auto-responder to talk it in circles.
 - In-memory state only (per testing-brief §12) — see the deployment note
   below on what that costs on a serverless host.
-
-## What would have helped most
-
-Real trigger payloads for local testing. The community dataset generator
-this repo's `dataset/` tooling is based on stubs most non-seed triggers as
-`{"placeholder": true}` (only ~25 seed triggers carry real facts) — so most
-of the local `submission.jsonl` output is deliberately in "degraded/no
-fabrication" mode rather than the fully-anchored mode the composer is built
-for. The real judge harness pushes real payloads per its own schema
-(testing-brief §3.4), so live behavior should look like the seed-trigger
-outputs (T03/T04/T09 etc. in `submission.jsonl`), not the placeholder ones.
 
 ## Running it
 
@@ -74,7 +96,8 @@ python generate_submission.py   # writes submission.jsonl
 
 Deployed to Vercel (serverless): **https://vera-challenge-bot.vercel.app**
 
-- `GET https://vera-challenge-bot.vercel.app/v1/healthz`
+- `GET https://vera-challenge-bot.vercel.app/v1/healthz` — confirmed live and
+  responding by the person running this session.
 - `GET https://vera-challenge-bot.vercel.app/v1/metadata`
 
 In-memory state can be lost on a cold start between requests. This is a
@@ -84,13 +107,13 @@ test window sees enough steady traffic to keep the instance warm, this
 shouldn't surface; if it does, `/v1/healthz` will show `contexts_loaded`
 reset to zero, which is the visible symptom.
 
-**Important — verify before submitting:** this was built and deployed from a
-sandboxed session whose network policy blocks outbound requests to
-`*.vercel.app`, so the deployment could not be curled from inside that
-session to confirm the live endpoints actually respond (only that the build
-succeeded and bundled all source files — confirmed via Vercel's deployment
-file listing). Hit the two URLs above yourself before submitting the URL to
-the portal.
+This session's own network policy blocks outbound requests to
+`*.vercel.app`, so redeploys after the healthz confirmation were verified
+by re-running the full local endpoint test suite against the same code
+before pushing, and via Vercel's own deployment-file listing (confirms the
+build bundled all source files) — not by re-curling the live URL a second
+time. If you change anything after this point, re-check `/v1/healthz`
+yourself before submitting.
 
 ## Files
 
@@ -100,4 +123,4 @@ the portal.
 | `facts.py`, `composer.py`, `validators.py`, `conversation_handlers.py`, `llm_hook.py` | composer internals |
 | `submission.jsonl` | 30-line deliverable (§7.2) |
 | `generate_submission.py` | regenerates it from local test data |
-| `dataset/`, `judge_simulator.py` | local dev/test tooling only — **not** submission deliverables; reused from a public participant repo to have something to iterate against while `magicpin.com` was unreachable from this environment. Not verified as magicpin's actual tooling. |
+| `challenge-brief.md`, `challenge-testing-brief.md`, `examples/`, `dataset/`, `judge_simulator.py` | the official spec + local dev/test tooling, from magicpin's own challenge zip — **not** submission deliverables, kept here for reproducibility |
