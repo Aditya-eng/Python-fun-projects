@@ -1,0 +1,4 @@
+dataset/expanded/
+__pycache__/
+*.pyc
+.vercel/
